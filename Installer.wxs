@@ -26,19 +26,6 @@
     <!-- UI -->
     <UIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-    
-    <!-- Verificar .NET 8 -->
-    <Property Id="DOTNET8">
-      <RegistrySearch Id="FindDotNet8"
-                      Root="HKLM"
-                      Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost"
-                      Name="Version"
-                      Type="raw" />
-    </Property>
-    
-    <Condition Message="Este aplicativo requer .NET 8 Desktop Runtime. Baixe em: https://dotnet.microsoft.com/download/dotnet/8.0">
-      <![CDATA[Installed OR DOTNET8]]>
-    </Condition>
 
     <!-- Ícone do instalador -->
     <Icon Id="icon.ico" SourceFile="app.ico"/>

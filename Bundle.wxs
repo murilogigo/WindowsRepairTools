@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:bal="http://schemas.microsoft.com/wix/BalExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Bundle Name="Windows Repair Tools"
+          Version="1.0.0"
+          Manufacturer="Murilo Gigo"
+          UpgradeCode="8C5F0C4A-2D1B-4F69-8D5A-7A8D1C6B3E2F">
+
+    <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.RtfLicense">
+      <bal:WixStandardBootstrapperApplication
+          LicenseFile="License.rtf" />
+    </BootstrapperApplicationRef>
+
+    <!-- Detecta .NET 8 Desktop Runtime instalado -->
+    <util:RegistrySearch
+        Id="DetectDotNet8Desktop"
+        Root="HKLM"
+        Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
+        Value="Version"
+        Variable="DOTNET8DESKTOP"
+        Result="value" />
+
+    <Chain>
+      <!-- .NET 8 Desktop Runtime -->
+      <ExePackage Id="DotNet8DesktopRuntime"
+                  DisplayName=".NET 8 Desktop Runtime"
+          Name="dotnet8-desktop-runtime.exe"
+                  SourceFile="dotnet8-desktop-runtime.exe"
+                  InstallCommand="/quiet /norestart"
+                  RepairCommand="/repair /quiet /norestart"
+                  UninstallCommand="/uninstall /quiet /norestart"
+                  PerMachine="yes"
+                  DetectCondition="DOTNET8DESKTOP" />
+
+      <!-- MSI do aplicativo -->
+      <MsiPackage SourceFile="WindowsRepairTools-v1.0.0.msi" />
+    </Chain>
+  </Bundle>
+</Wix>

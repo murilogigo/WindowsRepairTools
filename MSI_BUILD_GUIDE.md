@@ -17,32 +17,46 @@ candle.exe -?
 
 ## Compilar o MSI
 
-### Opção 1: Script Automático (Recomendado)
-```cmd
-Build-MSI.bat
-```
-
-### Opção 2: Manual
+### Manual
 ```powershell
 # 1. Compilar projeto
 dotnet build -c Release
 
-# 2. Compilar WiX source
+# 2. Compilar WiX source (MSI)
 candle.exe Installer.wxs -ext WixUIExtension -out obj\Installer.wixobj
 
 # 3. Criar MSI
 light.exe obj\Installer.wixobj -ext WixUIExtension -out WindowsRepairTools-v1.0.0.msi -sval
 ```
 
+## Compilar o Instalador Completo (EXE com .NET 8)
+
+O MSI não instala dependências. Para instalar automaticamente o .NET 8 Desktop Runtime, use o **Bundle (bootstrapper)**:
+
+```powershell
+# 1. Compilar projeto
+dotnet build -c Release
+
+# 2. Compilar Bundle
+candle.exe Bundle.wxs -ext WixBalExtension -ext WixUtilExtension -out obj\Bundle.wixobj
+
+# 3. Gerar instalador EXE
+light.exe obj\Bundle.wixobj -ext WixBalExtension -ext WixUtilExtension -out WindowsRepairTools-Setup-v1.0.0.exe -sval
+```
+
 ## Estrutura do Instalador
 
 O instalador MSI inclui:
-- ✅ Verificação de .NET 8 Runtime
+- ✅ Instalação do aplicativo
 - ✅ Instalação em `C:\Program Files\Windows Repair Tools`
 - ✅ Atalho no Menu Iniciar
 - ✅ Atalho na Área de Trabalho
 - ✅ Entrada em Programas e Recursos
 - ✅ Suporte a upgrade automático
+
+O instalador EXE (Bundle) inclui:
+- ✅ Instalação automática do .NET 8 Desktop Runtime
+- ✅ MSI do aplicativo
 
 ## Testando o MSI
 
