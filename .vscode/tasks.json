@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build WindowsUpdateRepairTool",
+			"type": "shell",
+			"command": "dotnet build",
+			"args": [
+				"c:\\Users\\muril\\Downloads\\WindowsUpdateRepairTool\\WindowsUpdateRepairTool.csproj"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		}
+	]
+}
