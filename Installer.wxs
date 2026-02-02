@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="Windows Repair Tools" 
+           Language="1033" 
+           Version="1.0.0" 
+           Manufacturer="Murilo Gigo" 
+           UpgradeCode="3A8F9B2C-4D7E-4F8A-9B3C-1E5F7A9D2C4B">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="Windows Repair Tools Installer"
+             Comments="Ferramentas de reparo e limpeza do Windows" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="Windows Repair Tools" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- UI -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- Verificar .NET 8 -->
+    <Property Id="DOTNET8">
+      <RegistrySearch Id="FindDotNet8"
+                      Root="HKLM"
+                      Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost"
+                      Name="Version"
+                      Type="raw" />
+    </Property>
+    
+    <Condition Message="Este aplicativo requer .NET 8 Desktop Runtime. Baixe em: https://dotnet.microsoft.com/download/dotnet/8.0">
+      <![CDATA[Installed OR DOTNET8]]>
+    </Condition>
+
+    <!-- Ícone do instalador -->
+    <Icon Id="icon.ico" SourceFile="app.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Windows Repair Tools" />
+      </Directory>
+      
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Windows Repair Tools"/>
+      </Directory>
+      
+      <Directory Id="DesktopFolder" Name="Desktop"/>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="WindowsRepairTools.exe" Guid="4B7C8A3D-5E9F-4A2B-8C1D-6F3A7B9E2C5D">
+        <File Id="WindowsRepairTools.exe" 
+              Source="bin\Release\net8.0-windows\WindowsRepairTools.exe" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="WindowsRepairTools.dll" Guid="5C8D9B4E-6F0A-5B3C-9D2E-7G4B8C0F3D6E">
+        <File Id="WindowsRepairTools.dll" 
+              Source="bin\Release\net8.0-windows\WindowsRepairTools.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="WindowsRepairTools.runtimeconfig.json" Guid="6D9E0C5F-7G1B-6C4D-0E3F-8H5C9D1G4E7F">
+        <File Id="WindowsRepairTools.runtimeconfig.json" 
+              Source="bin\Release\net8.0-windows\WindowsRepairTools.runtimeconfig.json" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+    
+    <!-- Atalho Menu Iniciar -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="7E0F1D6G-8H2C-7D5E-1F4G-9I6D0E2H5F8G">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Windows Repair Tools"
+                  Description="Ferramentas de reparo e limpeza do Windows"
+                  Target="[INSTALLFOLDER]WindowsRepairTools.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="icon.ico"/>
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" 
+                       Key="Software\WindowsRepairTools" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+    
+    <!-- Atalho Desktop -->
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="8F1G2E7H-9I3D-8E6F-2G5H-0J7E1F3I6G9H">
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Name="Windows Repair Tools"
+                  Description="Ferramentas de reparo e limpeza do Windows"
+                  Target="[INSTALLFOLDER]WindowsRepairTools.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="icon.ico"/>
+        <RegistryValue Root="HKCU" 
+                       Key="Software\WindowsRepairTools" 
+                       Name="desktop_shortcut" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

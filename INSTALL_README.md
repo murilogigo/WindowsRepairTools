@@ -30,17 +30,29 @@ Ferramenta moderna de reparo e limpeza do Windows com interface elegante e intui
 - .NET 8 Desktop Runtime (instalado automaticamente)
 - Privilégios de Administrador
 
-### Quick Start
+### Métodos de Instalação
 
-**Opção 1: Batch (Recomendado)**
+#### 🎯 Método 1: MSI Installer (Recomendado)
+```cmd
+WindowsRepairTools-v1.0.0.msi
+```
+- ✅ Instalação completa no sistema
+- ✅ Atalhos no Menu Iniciar e Desktop
+- ✅ Desinstalação via Painel de Controle
+- ✅ Verificação automática de .NET 8
+
+#### 🎯 Método 2: Instalador Automático Batch
 ```cmd
 Install.bat
 ```
 
-**Opção 2: PowerShell**
+#### 🎯 Método 3: Instalador PowerShell
 ```powershell
 powershell -ExecutionPolicy Bypass -File Install.ps1
 ```
+
+#### 🎯 Método 4: Executável Portátil
+Extrair o ZIP e executar `WindowsRepairTools.exe` diretamente.
 
 ## 🎨 Interface
 
