@@ -67,13 +67,13 @@
               KeyPath="yes" />
       </Component>
       
-      <Component Id="WindowsRepairTools.dll" Guid="5C8D9B4E-6F0A-5B3C-9D2E-7G4B8C0F3D6E">
+      <Component Id="WindowsRepairTools.dll" Guid="5C8D9B4E-6F0A-5B3C-9D2E-7A4B8C0F3D6E">
         <File Id="WindowsRepairTools.dll" 
               Source="bin\Release\net8.0-windows\WindowsRepairTools.dll" 
               KeyPath="yes" />
       </Component>
       
-      <Component Id="WindowsRepairTools.runtimeconfig.json" Guid="6D9E0C5F-7G1B-6C4D-0E3F-8H5C9D1G4E7F">
+      <Component Id="WindowsRepairTools.runtimeconfig.json" Guid="6D9E0C5F-7A1B-6C4D-0E3F-8B5C9D1A4E7F">
         <File Id="WindowsRepairTools.runtimeconfig.json" 
               Source="bin\Release\net8.0-windows\WindowsRepairTools.runtimeconfig.json" 
               KeyPath="yes" />
@@ -82,7 +82,7 @@
     
     <!-- Atalho Menu Iniciar -->
     <DirectoryRef Id="ApplicationProgramsFolder">
-      <Component Id="ApplicationShortcut" Guid="7E0F1D6G-8H2C-7D5E-1F4G-9I6D0E2H5F8G">
+      <Component Id="ApplicationShortcut" Guid="7E0F1D6A-8B2C-7D5E-1F4A-9C6D0E2B5F8A">
         <Shortcut Id="ApplicationStartMenuShortcut"
                   Name="Windows Repair Tools"
                   Description="Ferramentas de reparo e limpeza do Windows"
@@ -101,7 +101,7 @@
     
     <!-- Atalho Desktop -->
     <DirectoryRef Id="DesktopFolder">
-      <Component Id="DesktopShortcut" Guid="8F1G2E7H-9I3D-8E6F-2G5H-0J7E1F3I6G9H">
+      <Component Id="DesktopShortcut" Guid="8F1A2E7B-9C3D-8E6F-2A5B-0D7E1F3C6A9B">
         <Shortcut Id="ApplicationDesktopShortcut"
                   Name="Windows Repair Tools"
                   Description="Ferramentas de reparo e limpeza do Windows"
