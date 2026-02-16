@@ -12,6 +12,42 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Publish WindowsRepairTools (x64)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"publish",
+				"-c",
+				"Release",
+				"-r",
+				"win-x64",
+				"--self-contained",
+				"true",
+				"/p:PublishSingleFile=true"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Installer (Inno Setup)",
+			"type": "shell",
+			"command": "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe",
+			"args": [
+				"WindowsRepairTools.iss"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Publish + Build Installer",
+			"dependsOn": [
+				"Publish WindowsRepairTools (x64)",
+				"Build Installer (Inno Setup)"
+			],
+			"dependsOrder": "sequence"
 		}
 	]
 }

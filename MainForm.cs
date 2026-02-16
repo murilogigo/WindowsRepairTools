@@ -371,7 +371,7 @@ namespace WindowsRepairTools
             btnSFC.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.RunSfcAsync(Log));
             btnDISM.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.RunDismAsync(Log));
             btnTemp.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.ClearTempAsync(Log));
-            btnWinUpdate.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.UpdateWindowsAsync(Log));
+            btnWinUpdate.Click += async (s, e) => await RunWindowsUpdateAsync();
             btnProgUpdate.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.UpdateProgramsAsync(Log));
             btnChkdsk.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.CheckDiskAsync(Log));
             btnDns.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.FlushDnsAsync(Log));
@@ -462,6 +462,24 @@ namespace WindowsRepairTools
             }
 
             return bmp;
+        }
+
+        private async Task RunWindowsUpdateAsync()
+        {
+            var result = MessageBox.Show(
+                "Deseja permitir reinicializacao automatica se for necessario?",
+                "Windows Update",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Cancel)
+            {
+                Log("Atualizacao cancelada pelo usuario.\r\n");
+                return;
+            }
+
+            bool autoReboot = result == DialogResult.Yes;
+            await RunWithBusy(() => Program.RepairService.UpdateWindowsAsync(Log, autoReboot));
         }
 
         private const int WM_NCLBUTTONDOWN = 0xA1;

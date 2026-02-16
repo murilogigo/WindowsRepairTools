@@ -114,7 +114,7 @@ namespace WindowsRepairTools
                 return RunCommandAsync("del /s /f /q %TEMP%\\*.* && del /s /f /q C:\\Windows\\Temp\\*.*", "Apagando arquivos temporários...", log);
             }
 
-            public static async Task UpdateWindowsAsync(Action<string> log)
+            public static async Task UpdateWindowsAsync(Action<string> log, bool autoReboot)
             {
                 var checkModule = await RunCommandAsync("powershell -Command \"Get-Module -ListAvailable PSWindowsUpdate\"", "Verificando módulo PSWindowsUpdate...", log);
                 if (!string.IsNullOrEmpty(checkModule) && checkModule.Contains("PSWindowsUpdate"))
@@ -139,7 +139,11 @@ namespace WindowsRepairTools
                     await RunCommandAsync("powershell -Command \"Import-Module PSWindowsUpdate\"", "Importando módulo PSWindowsUpdate...", log);
                 }
 
-                await RunCommandAsync("powershell -Command \"Get-WindowsUpdate -AcceptAll -Install -AutoReboot\"", "Buscando e instalando atualizações do Windows...", log);
+                var rebootArg = autoReboot ? " -AutoReboot" : string.Empty;
+                await RunCommandAsync(
+                    $"powershell -Command \"Get-WindowsUpdate -AcceptAll -Install{rebootArg}\"",
+                    "Buscando e instalando atualizações do Windows...",
+                    log);
             }
 
             public static Task UpdateProgramsAsync(Action<string> log)
