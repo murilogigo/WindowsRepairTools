@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace WindowsRepairTools
 {
@@ -10,6 +14,7 @@ namespace WindowsRepairTools
         [STAThread]
         static void Main()
         {
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
             // Verifica se está em modo administrador
             if (!IsRunAsAdmin())
             {
@@ -45,6 +50,38 @@ namespace WindowsRepairTools
 
         public static class RepairService
         {
+            public sealed class InvalidProgramEntry
+            {
+                public InvalidProgramEntry(
+                    string displayName,
+                    string subKeyPath,
+                    RegistryHive hive,
+                    RegistryView view,
+                    string installLocation,
+                    string uninstallString,
+                    string reason,
+                    string source)
+                {
+                    DisplayName = displayName;
+                    SubKeyPath = subKeyPath;
+                    Hive = hive;
+                    View = view;
+                    InstallLocation = installLocation;
+                    UninstallString = uninstallString;
+                    Reason = reason;
+                    Source = source;
+                }
+
+                public string DisplayName { get; }
+                public string SubKeyPath { get; }
+                public RegistryHive Hive { get; }
+                public RegistryView View { get; }
+                public string InstallLocation { get; }
+                public string UninstallString { get; }
+                public string Reason { get; }
+                public string Source { get; }
+            }
+
             public static Task ResetWindowsUpdateAsync(Action<string> log)
             {
                 return RunCommandAsync(
@@ -141,15 +178,47 @@ namespace WindowsRepairTools
                     log);
             }
 
-            public static Task CleanRegistryAsync(Action<string> log)
+            public static Task CleanRegistryMruAsync(Action<string> log)
             {
                 return RunCommandAsync(
                     "powershell -Command \"" +
                     "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU' -Recurse -Force -ErrorAction SilentlyContinue; " +
                     "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\TypedPaths' -Recurse -Force -ErrorAction SilentlyContinue; " +
                     "Write-Host 'Limpeza de registro concluída.'\"",
-                    "Limpando registro do Windows...",
+                    "Limpando histórico do registro (MRU/TypedPaths)...",
                     log);
+            }
+
+            public static Task<List<InvalidProgramEntry>> FindInvalidProgramEntriesAsync(Action<string> log)
+            {
+                return Task.Run(() => EnumerateInvalidProgramEntries(log).ToList());
+            }
+
+            public static Task RemoveInvalidProgramEntriesAsync(IEnumerable<InvalidProgramEntry> entries, Action<string> log)
+            {
+                return Task.Run(() =>
+                {
+                    int removed = 0;
+                    int failed = 0;
+
+                    foreach (var entry in entries)
+                    {
+                        try
+                        {
+                            using var baseKey = RegistryKey.OpenBaseKey(entry.Hive, entry.View);
+                            baseKey.DeleteSubKeyTree(entry.SubKeyPath, false);
+                            removed++;
+                            log?.Invoke($"Removido: {entry.DisplayName} ({entry.Source})\r\n");
+                        }
+                        catch (Exception ex)
+                        {
+                            failed++;
+                            log?.Invoke($"Falha ao remover {entry.DisplayName} ({entry.Source}): {ex.Message}\r\n");
+                        }
+                    }
+
+                    log?.Invoke($"Remoção concluída. Removidas: {removed}. Falhas: {failed}.\r\n");
+                });
             }
 
             public static Task ResetWindowsStoreAsync(Action<string> log)
@@ -221,6 +290,167 @@ namespace WindowsRepairTools
                     log?.Invoke($"Erro: {ex.Message}\r\n");
                 }
                 return output;
+            }
+
+            private static IEnumerable<InvalidProgramEntry> EnumerateInvalidProgramEntries(Action<string> log)
+            {
+                var views = Environment.Is64BitOperatingSystem
+                    ? new[] { RegistryView.Registry64, RegistryView.Registry32 }
+                    : new[] { RegistryView.Default };
+
+                foreach (var view in views)
+                {
+                    foreach (var entry in ScanUninstallKey(RegistryHive.LocalMachine, view, log, "HKLM"))
+                    {
+                        yield return entry;
+                    }
+
+                    foreach (var entry in ScanUninstallKey(RegistryHive.CurrentUser, view, log, "HKCU"))
+                    {
+                        yield return entry;
+                    }
+                }
+            }
+
+            private static IEnumerable<InvalidProgramEntry> ScanUninstallKey(
+                RegistryHive hive,
+                RegistryView view,
+                Action<string> log,
+                string hiveLabel)
+            {
+                const string uninstallPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+                string viewLabel = view == RegistryView.Registry32 ? "32-bit" : "64-bit";
+
+                using var baseKey = RegistryKey.OpenBaseKey(hive, view);
+                using var uninstallKey = baseKey.OpenSubKey(uninstallPath);
+                if (uninstallKey == null)
+                {
+                    yield break;
+                }
+
+                foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+                {
+                    using var subKey = uninstallKey.OpenSubKey(subKeyName);
+                    if (subKey == null)
+                    {
+                        continue;
+                    }
+
+                    var displayName = (subKey.GetValue("DisplayName") as string)?.Trim();
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        continue;
+                    }
+
+                    var installLocation = (subKey.GetValue("InstallLocation") as string)?.Trim();
+                    var uninstallString = (subKey.GetValue("UninstallString") as string)?.Trim();
+
+                    if (IsInvalidInstallEntry(installLocation, uninstallString, out var reason))
+                    {
+                        var subKeyPath = uninstallPath + "\\" + subKeyName;
+                        var source = $"{hiveLabel} {viewLabel}";
+                        yield return new InvalidProgramEntry(
+                            displayName,
+                            subKeyPath,
+                            hive,
+                            view,
+                            installLocation,
+                            uninstallString,
+                            reason,
+                            source);
+                    }
+                }
+            }
+
+            private static bool IsInvalidInstallEntry(string installLocation, string uninstallString, out string reason)
+            {
+                reason = "";
+
+                var normalizedInstall = NormalizePath(installLocation);
+                bool hasInstall = !string.IsNullOrWhiteSpace(normalizedInstall);
+                bool installExists = hasInstall && Directory.Exists(normalizedInstall);
+
+                var uninstallPath = ExtractPathFromUninstallString(uninstallString);
+                bool hasUninstall = !string.IsNullOrWhiteSpace(uninstallPath);
+                bool uninstallExists = hasUninstall && (File.Exists(uninstallPath) || Directory.Exists(uninstallPath));
+
+                if (!hasInstall && !hasUninstall)
+                {
+                    return false;
+                }
+
+                if (installExists || uninstallExists)
+                {
+                    return false;
+                }
+
+                if (hasInstall)
+                {
+                    reason = "InstallLocation inexistente";
+                }
+                else
+                {
+                    reason = "UninstallString sem arquivo";
+                }
+
+                return true;
+            }
+
+            private static string NormalizePath(string path)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return null;
+                }
+
+                var expanded = Environment.ExpandEnvironmentVariables(path.Trim());
+                return expanded.TrimEnd('\\');
+            }
+
+            private static string ExtractPathFromUninstallString(string uninstallString)
+            {
+                if (string.IsNullOrWhiteSpace(uninstallString))
+                {
+                    return null;
+                }
+
+                var expanded = Environment.ExpandEnvironmentVariables(uninstallString.Trim());
+                if (expanded.StartsWith("msiexec", StringComparison.OrdinalIgnoreCase) ||
+                    expanded.StartsWith("rundll32", StringComparison.OrdinalIgnoreCase) ||
+                    expanded.StartsWith("cmd ", StringComparison.OrdinalIgnoreCase) ||
+                    expanded.StartsWith("powershell", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                string candidate;
+                if (expanded.StartsWith("\"", StringComparison.Ordinal))
+                {
+                    int endQuote = expanded.IndexOf('"', 1);
+                    if (endQuote <= 1)
+                    {
+                        return null;
+                    }
+
+                    candidate = expanded.Substring(1, endQuote - 1);
+                }
+                else
+                {
+                    int firstSpace = expanded.IndexOf(' ');
+                    candidate = firstSpace > 0 ? expanded.Substring(0, firstSpace) : expanded;
+                }
+
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    return null;
+                }
+
+                if (!Path.IsPathRooted(candidate) && !candidate.StartsWith("\\\\", StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                return candidate.Trim();
             }
         }
     }

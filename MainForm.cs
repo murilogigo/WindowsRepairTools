@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
@@ -47,14 +50,67 @@ namespace WindowsRepairTools
         public MainForm()
         {
             this.Text = "Windows Repair tools";
-            this.Width = 900;
-            this.Height = 560;
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.Width = 1040;
+            this.Height = 640;
+            this.FormBorderStyle = FormBorderStyle.None;
             this.MaximizeBox = false;
             this.BackColor = Bg;
             this.Font = new Font("Segoe UI", 10);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Padding = new Padding(16, 12, 16, 12);
+
+            var titleBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                BackColor = Bg
+            };
+
+            var lblTitleBar = new Label
+            {
+                Text = "Windows Repair tools",
+                Dock = DockStyle.Left,
+                Width = 220,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = TextPrimary,
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                Padding = new Padding(8, 0, 0, 0)
+            };
+
+            var btnClose = new Button
+            {
+                Text = "X",
+                Dock = DockStyle.Right,
+                Width = 46,
+                Height = 26,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(200, 60, 60),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.Click += (s, e) => Close();
+
+            var btnMin = new Button
+            {
+                Text = "-",
+                Dock = DockStyle.Right,
+                Width = 46,
+                Height = 26,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = SurfaceLight,
+                ForeColor = TextPrimary,
+                Font = new Font("Segoe UI", 12, FontStyle.Bold)
+            };
+            btnMin.FlatAppearance.BorderSize = 0;
+            btnMin.Click += (s, e) => WindowState = FormWindowState.Minimized;
+
+            titleBar.Controls.Add(btnClose);
+            titleBar.Controls.Add(btnMin);
+            titleBar.Controls.Add(lblTitleBar);
+
+            titleBar.MouseDown += (s, e) => BeginDrag(e);
+            lblTitleBar.MouseDown += (s, e) => BeginDrag(e);
 
             var header = new Panel
             {
@@ -85,20 +141,7 @@ namespace WindowsRepairTools
                 Padding = new Padding(8, 0, 0, 0)
             };
 
-            var adminStatus = GetAdminStatus();
-            var lblAdmin = new Label
-            {
-                Text = adminStatus,
-                Dock = DockStyle.Top,
-                Height = 14,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                ForeColor = adminStatus.Contains("✓") ? Color.FromArgb(156, 204, 101) : Color.FromArgb(244, 67, 54),
-                Padding = new Padding(8, 0, 0, 0)
-            };
-
             header.Controls.Add(lblSubtitle);
-            header.Controls.Add(lblAdmin);
             header.Controls.Add(lblTitle);
 
             var layout = new TableLayoutPanel
@@ -333,26 +376,60 @@ namespace WindowsRepairTools
             btnChkdsk.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.CheckDiskAsync(Log));
             btnDns.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.FlushDnsAsync(Log));
             btnBoot.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.RepairBootAsync(Log));
-            btnRegistry.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.CleanRegistryAsync(Log));
+            btnRegistry.Click += async (s, e) => await RunRegistryCleanupAsync();
             btnStore.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.ResetWindowsStoreAsync(Log));
             btnDrivers.Click += async (s, e) => await RunWithBusy(() => Program.RepairService.UpdateDriversAsync(Log));
 
             Controls.Add(layout);
             Controls.Add(header);
+            Controls.Add(titleBar);
+
+            Shown += (s, e) => ApplyRoundedCorners();
+            Resize += (s, e) => ApplyRoundedCorners();
         }
-        private string GetAdminStatus()
+
+        [DllImport("gdi32.dll", SetLastError = true)]
+        private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+        [DllImport("gdi32.dll", SetLastError = true)]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        private void ApplyRoundedCorners()
         {
-            try
+            ApplyRoundedRegion(this, 16);
+            ApplyRoundedRegionToChildren(this);
+        }
+
+        private void ApplyRoundedRegionToChildren(Control parent)
+        {
+            foreach (Control child in parent.Controls)
             {
-                var wi = System.Security.Principal.WindowsIdentity.GetCurrent();
-                var wp = new System.Security.Principal.WindowsPrincipal(wi);
-                bool isAdmin = wp.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-                return isAdmin ? "✓ Modo Administrador ativo" : "⚠ Sem privilégios de administrador";
+                if (child is Button)
+                {
+                    ApplyRoundedRegion(child, 10);
+                }
+                else if (child is Panel || child is TabControl || child is TabPage || child is TextBox)
+                {
+                    ApplyRoundedRegion(child, 12);
+                }
+
+                if (child.HasChildren)
+                {
+                    ApplyRoundedRegionToChildren(child);
+                }
             }
-            catch
+        }
+
+        private void ApplyRoundedRegion(Control control, int radius)
+        {
+            if (control.Width <= 0 || control.Height <= 0)
             {
-                return "⚠ Impossível verificar privilégios";
+                return;
             }
+
+            IntPtr region = CreateRoundRectRgn(0, 0, control.Width + 1, control.Height + 1, radius, radius);
+            control.Region = Region.FromHrgn(region);
+            DeleteObject(region);
         }
         private void ApplyButtonStyle(Button btn)
         {
@@ -385,6 +462,72 @@ namespace WindowsRepairTools
             }
 
             return bmp;
+        }
+
+        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int HTCAPTION = 0x2;
+
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+        private void BeginDrag(MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            ReleaseCapture();
+            SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        }
+
+        private async Task RunRegistryCleanupAsync()
+        {
+            await RunWithBusy(async () =>
+            {
+                Log($"{DateTime.Now:HH:mm:ss} - Buscando entradas invalidas de programas...\r\n");
+                var invalidEntries = await Program.RepairService.FindInvalidProgramEntriesAsync(Log);
+
+                if (invalidEntries.Count == 0)
+                {
+                    Log("Nenhuma entrada invalida encontrada.\r\n");
+                    MessageBox.Show("Nenhuma entrada invalida foi encontrada.", "Limpar Registro", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    await Program.RepairService.CleanRegistryMruAsync(Log);
+                    return;
+                }
+
+                using var dialog = new InvalidProgramsDialog(invalidEntries, Surface, SurfaceLight, TextPrimary, TextMuted, Accent);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    Log("Operacao cancelada pelo usuario.\r\n");
+                    return;
+                }
+
+                var selected = dialog.SelectedEntries;
+                if (selected.Count == 0)
+                {
+                    Log("Nenhuma entrada selecionada para remocao.\r\n");
+                    return;
+                }
+
+                var confirm = MessageBox.Show(
+                    $"Remover {selected.Count} entradas invalidas do registro?",
+                    "Confirmar remocao",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (confirm != DialogResult.Yes)
+                {
+                    Log("Remocao cancelada pelo usuario.\r\n");
+                    return;
+                }
+
+                await Program.RepairService.RemoveInvalidProgramEntriesAsync(selected, Log);
+                await Program.RepairService.CleanRegistryMruAsync(Log);
+            });
         }
 
         private void DrawIconGlyph(Graphics g, string type)
@@ -491,6 +634,156 @@ namespace WindowsRepairTools
             }
 
             txtLog.AppendText(message);
+        }
+
+        private sealed class InvalidProgramsDialog : Form
+        {
+            private readonly ListView listView;
+            private readonly Button btnOk;
+            private readonly Button btnCancel;
+            private readonly Button btnSelectAll;
+            private readonly Button btnClear;
+
+            public InvalidProgramsDialog(
+                IReadOnlyList<Program.RepairService.InvalidProgramEntry> entries,
+                Color surface,
+                Color surfaceLight,
+                Color textPrimary,
+                Color textMuted,
+                Color accent)
+            {
+                Text = "Entradas invalidas encontradas";
+                Width = 760;
+                Height = 420;
+                FormBorderStyle = FormBorderStyle.FixedDialog;
+                MaximizeBox = false;
+                MinimizeBox = false;
+                StartPosition = FormStartPosition.CenterParent;
+                BackColor = surface;
+                Font = new Font("Segoe UI", 9.5f);
+
+                var lblInfo = new Label
+                {
+                    Text = "Selecione as entradas invalidas para remover:",
+                    Dock = DockStyle.Top,
+                    Height = 28,
+                    ForeColor = textPrimary,
+                    Padding = new Padding(6, 6, 0, 0)
+                };
+
+                listView = new ListView
+                {
+                    Dock = DockStyle.Fill,
+                    CheckBoxes = true,
+                    View = View.Details,
+                    FullRowSelect = true,
+                    GridLines = false,
+                    BorderStyle = BorderStyle.None,
+                    BackColor = surfaceLight,
+                    ForeColor = textPrimary
+                };
+
+                listView.Columns.Add("Programa", 280, HorizontalAlignment.Left);
+                listView.Columns.Add("Motivo", 220, HorizontalAlignment.Left);
+                listView.Columns.Add("Origem", 140, HorizontalAlignment.Left);
+
+                foreach (var entry in entries)
+                {
+                    var item = new ListViewItem(entry.DisplayName);
+                    item.SubItems.Add(entry.Reason);
+                    item.SubItems.Add(entry.Source);
+                    item.Tag = entry;
+                    listView.Items.Add(item);
+                }
+
+                var buttonRow = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 44,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    Padding = new Padding(8, 6, 8, 6)
+                };
+
+                btnOk = new Button
+                {
+                    Text = "Remover",
+                    Width = 110,
+                    Height = 28,
+                    BackColor = accent,
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat
+                };
+                btnOk.FlatAppearance.BorderSize = 0;
+                btnOk.Click += (s, e) => DialogResult = DialogResult.OK;
+
+                btnCancel = new Button
+                {
+                    Text = "Cancelar",
+                    Width = 110,
+                    Height = 28,
+                    BackColor = surfaceLight,
+                    ForeColor = textPrimary,
+                    FlatStyle = FlatStyle.Flat
+                };
+                btnCancel.FlatAppearance.BorderSize = 0;
+                btnCancel.Click += (s, e) => DialogResult = DialogResult.Cancel;
+
+                btnSelectAll = new Button
+                {
+                    Text = "Selecionar tudo",
+                    Width = 130,
+                    Height = 28,
+                    BackColor = surfaceLight,
+                    ForeColor = textPrimary,
+                    FlatStyle = FlatStyle.Flat
+                };
+                btnSelectAll.FlatAppearance.BorderSize = 0;
+                btnSelectAll.Click += (s, e) =>
+                {
+                    foreach (ListViewItem item in listView.Items)
+                    {
+                        item.Checked = true;
+                    }
+                };
+
+                btnClear = new Button
+                {
+                    Text = "Limpar selecao",
+                    Width = 130,
+                    Height = 28,
+                    BackColor = surfaceLight,
+                    ForeColor = textPrimary,
+                    FlatStyle = FlatStyle.Flat
+                };
+                btnClear.FlatAppearance.BorderSize = 0;
+                btnClear.Click += (s, e) =>
+                {
+                    foreach (ListViewItem item in listView.Items)
+                    {
+                        item.Checked = false;
+                    }
+                };
+
+                buttonRow.Controls.Add(btnOk);
+                buttonRow.Controls.Add(btnCancel);
+                buttonRow.Controls.Add(btnClear);
+                buttonRow.Controls.Add(btnSelectAll);
+
+                Controls.Add(listView);
+                Controls.Add(buttonRow);
+                Controls.Add(lblInfo);
+            }
+
+            public List<Program.RepairService.InvalidProgramEntry> SelectedEntries
+            {
+                get
+                {
+                    return listView.CheckedItems
+                        .Cast<ListViewItem>()
+                        .Select(item => (Program.RepairService.InvalidProgramEntry)item.Tag)
+                        .ToList();
+                }
+            }
         }
 
         private async Task RunWithBusy(Func<Task> action)
